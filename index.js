@@ -36,6 +36,23 @@ const client = new MongoClient(uri, {
 });
 
 
+// verifyToken
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token
+
+  if (!token) {
+    return res.status(401).send({ message: 'unauthorized access' })
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: 'unauthorized access' })
+    }
+    req.user = decoded
+    next()
+  })
+}
+
+
 
 
 
@@ -43,6 +60,7 @@ async function run() {
   try {
     const db = client.db('pawAdoptionDb')
     const petsCollection = db.collection('pets')
+    const usersCollection = db.collection('users')
 
 
 
@@ -74,6 +92,24 @@ async function run() {
       } catch (err) {
         res.status(500).send(err)
       }
+    });
+
+    // save a user in DB
+    app.post('/users/:email', async (req, res) => {
+      const email = req.params.email
+      const query = { email }
+      const user = req.body
+      
+      const isExist = await usersCollection.findOne(query)
+      if (isExist) {
+        return res.send(isExist)
+      }
+      const result = await usersCollection.insertOne({
+        ...user,
+        role: 'user',
+        timestamp: Date.now(),
+      })
+      res.send(result);
     });
 
 
