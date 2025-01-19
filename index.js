@@ -44,7 +44,38 @@ async function run() {
     const db = client.db('pawAdoptionDb')
     const petsCollection = db.collection('pets')
 
- 
+
+
+    // Generate jwt token
+    app.post('/jwt', async (req, res) => {
+      const email = req.body
+      const token = jwt.sign(email, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: '365d',
+      })
+      res
+        .cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+        })
+        .send({ success: true })
+    });
+
+    // Logout/clear cookie from browser
+    app.get('/logout', async (req, res) => {
+      try {
+        res
+          .clearCookie('token', {
+            maxAge: 0,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+          })
+          .send({ success: true })
+      } catch (err) {
+        res.status(500).send(err)
+      }
+    });
+
 
     // get all pets by search, filtter query
     app.get('/pets', async (req, res) => {
