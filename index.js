@@ -41,7 +41,29 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const db = client.db('pawAdoptionDb')
+    const petsCollection = db.collection('pets')
 
+ 
+
+    // get all pets by search, filtter query
+    app.get('/pets', async (req, res) => {
+      const { page = 1, limit = 9, search = "", category = "" } = req.query;
+      const query = {};
+      if (search) query.name = { $regex: search, $options: "i" };
+      if (category) query.category = category;
+
+      const pets = await petsCollection.find(query)
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(Number(limit)).toArray();
+
+      const total = await petsCollection.countDocuments(query);
+      res.send({
+        pets,
+        nextPage: page * limit < total ? Number(page) + 1 : null,
+      })
+    });
 
 
 
