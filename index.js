@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
 
 
@@ -99,7 +99,7 @@ async function run() {
       const email = req.params.email
       const query = { email }
       const user = req.body
-      
+
       const isExist = await usersCollection.findOne(query)
       if (isExist) {
         return res.send(isExist)
@@ -112,13 +112,20 @@ async function run() {
       res.send(result);
     });
 
+     // get user role
+     app.get('/users/role/:email', async (req, res) => {
+      const email = req.params.email
+      const result = await usersCollection.findOne({ email })
+      res.send({ role: result?.role })
+    })
+
 
     // get all pets by search, filtter query
     app.get('/pets', async (req, res) => {
       const { page = 1, limit = 9, search = "", category = "" } = req.query;
       const query = {};
-      if (search) query.name = { $regex: search, $options: "i" };
-      if (category) query.category = category;
+      if (search) query.petName = { $regex: search, $options: "i" };
+      if (category) query.petCategory = category;
 
       const pets = await petsCollection.find(query)
         .sort({ createdAt: -1 })
@@ -130,6 +137,23 @@ async function run() {
         pets,
         nextPage: page * limit < total ? Number(page) + 1 : null,
       })
+    });
+
+
+    // save a pet by user in db
+    app.post('/add-pet', async (req, res) => {
+      const petData = req.body;
+      const result = await petsCollection.insertOne(petData)
+      res.send(result);
+    });
+
+
+    // get a pet by id
+    app.get('/pets/:id', async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await petsCollection.findOne(query)
+      res.send(result);
     });
 
 
