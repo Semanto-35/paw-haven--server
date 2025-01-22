@@ -196,7 +196,6 @@ async function run() {
       res.send(result);
     });
 
-
     // delete a pet by id
     app.delete('/pet/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
@@ -204,6 +203,7 @@ async function run() {
       const result = await petsCollection.deleteOne(query);
       res.send(result);
     });
+
 
 
 
