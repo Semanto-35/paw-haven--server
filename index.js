@@ -112,12 +112,12 @@ async function run() {
       res.send(result);
     });
 
-     // get user role
-     app.get('/users/role/:email', async (req, res) => {
+    // get user role
+    app.get('/users/role/:email', async (req, res) => {
       const email = req.params.email
       const result = await usersCollection.findOne({ email })
       res.send({ role: result?.role })
-    })
+    });
 
 
     // get all pets by search, filtter query
@@ -139,9 +139,22 @@ async function run() {
       })
     });
 
+    // get all pets posted by a user
+    app.get('/all-pets/:email', verifyToken, async (req, res) => {
+      const emails = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== emails)
+        return res.status(401).send({ message: 'unauthorized access' })
+      const query = {
+        addedBy: emails
+      }
+      const result = await petsCollection.find(query).toArray();
+      res.send(result);
+    });
+
 
     // save a pet by user in db
-    app.post('/add-pet', async (req, res) => {
+    app.post('/add-pet', verifyToken, async (req, res) => {
       const petData = req.body;
       const result = await petsCollection.insertOne(petData)
       res.send(result);
@@ -149,12 +162,49 @@ async function run() {
 
 
     // get a pet by id
-    app.get('/pets/:id', async (req, res) => {
+    app.get('/pets/:id', verifyToken, async (req, res) => {
       const id = req.params.id
       const query = { _id: new ObjectId(id) }
       const result = await petsCollection.findOne(query)
       res.send(result);
+      console.log(result);
     });
+
+
+    // update and then save a service
+    app.put('/update-pet/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const formData = req.body;
+      const updatedDoc = {
+        $set: formData,
+      }
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true }
+      const result = await petsCollection.updateOne(filter, updatedDoc, options);
+      res.send(result);
+    });
+
+
+    // update a pet adoption status
+    app.patch('/pet/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: { adopted: true },
+      }
+      const result = await petsCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
+
+
+    // delete a pet by id
+    app.delete('/pet/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await petsCollection.deleteOne(query);
+      res.send(result);
+    });
+
 
 
 
