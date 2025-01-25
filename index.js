@@ -190,9 +190,10 @@ async function run() {
     // update a pet adoption status
     app.patch('/pet/:id', verifyToken, async (req, res) => {
       const id = req.params.id
+      const { status } = req.body;
       const filter = { _id: new ObjectId(id) }
       const updateDoc = {
-        $set: { adopted: true },
+        $set: { adopted: status },
       }
       const result = await petsCollection.updateOne(filter, updateDoc)
       res.send(result);
@@ -299,6 +300,29 @@ async function run() {
         addedBy: emails
       }
       const result = await donationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
+    // make a adoption request
+    app.post('/adopted-pet', verifyToken, async (req, res) => {
+      const campaignData = req.body;
+      const result = await adoptionCollection.insertOne(campaignData)
+      res.send(result);
+    });
+
+
+    // get all pets adopted by a user
+    app.get('/adopted-pet/:email', verifyToken, async (req, res) => {
+      const emails = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== emails)
+        return res.status(401).send({ message: 'unauthorized access' })
+      const query = {
+        requesterEmail: emails
+      }
+      const result = await adoptionCollection.find(query).toArray();
       res.send(result);
     });
 
