@@ -61,6 +61,8 @@ async function run() {
     const db = client.db('pawAdoptionDb')
     const petsCollection = db.collection('pets')
     const usersCollection = db.collection('users')
+    const donationCampaignsCollection = db.collection('donation_campaign')
+    
 
 
 
@@ -167,11 +169,10 @@ async function run() {
       const query = { _id: new ObjectId(id) }
       const result = await petsCollection.findOne(query)
       res.send(result);
-      console.log(result);
     });
 
 
-    // update and then save a service
+    // update and then save a pet by id
     app.put('/update-pet/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const formData = req.body;
@@ -204,6 +205,35 @@ async function run() {
       res.send(result);
     });
 
+    // create a donation campaign
+    app.post('/donation-campaigns', verifyToken, async (req, res) => {
+      const campaignData = req.body;
+      const campaigns = {
+        ...campaignData,
+        createdAt: new Date(),
+        currentDonation: 0,
+        isPaused: false,
+      }
+      const result = await donationCampaignsCollection.insertOne(campaigns)
+      res.send(result);
+    });
+
+
+    // get all donation campaign created by a user
+    app.get('/all-campaigns/:email', verifyToken, async (req, res) => {
+      const emails = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== emails)
+        return res.status(401).send({ message: 'unauthorized access' })
+      const query = {
+        addedBy: emails
+      }
+      const result = await donationCampaignsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+  
 
 
 
