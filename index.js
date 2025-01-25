@@ -62,7 +62,8 @@ async function run() {
     const petsCollection = db.collection('pets')
     const usersCollection = db.collection('users')
     const donationCampaignsCollection = db.collection('donation_campaign')
-
+    const donationCollection = db.collection('donations')
+    const adoptionCollection = db.collection('adopted_pets')
 
 
 
@@ -256,7 +257,7 @@ async function run() {
     });
 
 
-    // update a pet adoption status in donation campaign
+    // update a pet donation status in donation campaign
     app.patch('/donation-campaigns/:id', verifyToken, async (req, res) => {
       const id = req.params.id
       const filter = { _id: new ObjectId(id) }
@@ -266,6 +267,38 @@ async function run() {
         $set: { isPaused: !isPaused },
       }
       const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
+
+
+
+    // save a donation in a donation campaigns 
+    app.post('/donations', verifyToken, async (req, res) => {
+      const donationData = req.body;
+      const result = await donationCollection.insertOne(donationData)
+      res.send(result);
+    });
+
+
+    // get all donations created in a donation campaigns
+    app.get('/donations/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const query = { petId: id }
+      const result = await donationCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    // get all donations created by a user
+    app.get('/donations/:email', verifyToken, async (req, res) => {
+      const emails = req.params.email;
+      const decodedEmail = req.user?.email
+      if (decodedEmail !== emails)
+        return res.status(401).send({ message: 'unauthorized access' })
+      const query = {
+        addedBy: emails
+      }
+      const result = await donationCollection.find(query).toArray();
       res.send(result);
     });
 
