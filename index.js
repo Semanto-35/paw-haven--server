@@ -62,7 +62,7 @@ async function run() {
     const petsCollection = db.collection('pets')
     const usersCollection = db.collection('users')
     const donationCampaignsCollection = db.collection('donation_campaign')
-    
+
 
 
 
@@ -233,7 +233,43 @@ async function run() {
     });
 
 
-  
+    // get a donation campaigns by id
+    app.get('/donation-campaigns/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const query = { _id: new ObjectId(id) }
+      const result = await donationCampaignsCollection.findOne(query)
+      res.send(result);
+    });
+
+
+    // update and then save a donation campaign by id
+    app.put('/update-campaign/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const formData = req.body;
+      const updatedDoc = {
+        $set: formData,
+      }
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true }
+      const result = await donationCampaignsCollection.updateOne(filter, updatedDoc, options);
+      res.send(result);
+    });
+
+
+    // update a pet adoption status in donation campaign
+    app.patch('/donation-campaigns/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const filter = { _id: new ObjectId(id) }
+      const campaign = await donationCampaignsCollection.findOne(filter);
+      const isPaused = campaign.isPaused;
+      const updateDoc = {
+        $set: { isPaused: !isPaused },
+      }
+      const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
+
+
 
 
 
