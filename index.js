@@ -149,7 +149,29 @@ async function run() {
 
 
 
+    // update a user role by admin
+    app.patch('/user/role/:id', verifyToken,verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: { role: "admin" },
+      }
+      const result = await usersCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
 
+
+
+    // ban a user by admin 
+    app.patch('/user/ban/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: { isBanned: true },
+      }
+      const result = await usersCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
 
 
 
