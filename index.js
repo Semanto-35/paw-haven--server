@@ -97,6 +97,21 @@ async function run() {
       }
     });
 
+
+    // verify admin middleware
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.user?.email
+      const query = { email }
+      const result = await usersCollection.findOne(query)
+      if (!result || result?.role !== 'admin')
+        return res
+          .status(403)
+          .send({ message: 'Forbidden Access! Admin Only Actions!' })
+
+      next()
+    }
+
+
     // save a user in DB
     app.post('/users/:email', async (req, res) => {
       const email = req.params.email
@@ -110,6 +125,7 @@ async function run() {
       const result = await usersCollection.insertOne({
         ...user,
         role: 'user',
+        isBanned: false,
         timestamp: Date.now(),
       })
       res.send(result);
@@ -121,6 +137,20 @@ async function run() {
       const result = await usersCollection.findOne({ email })
       res.send({ role: result?.role })
     });
+
+
+    // get all user data by admin
+    app.get('/all-users/:email', verifyToken, verifyAdmin, async (req, res) => {
+      const email = req.params.email
+      const query = { email: { $ne: email } }
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+
+
+
 
 
     // get all pets by search, filtter query
