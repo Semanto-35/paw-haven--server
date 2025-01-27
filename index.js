@@ -150,7 +150,7 @@ async function run() {
 
 
     // update a user role by admin
-    app.patch('/user/role/:id', verifyToken,verifyAdmin, async (req, res) => {
+    app.patch('/user/role/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) }
       const updateDoc = {
@@ -161,9 +161,8 @@ async function run() {
     });
 
 
-
     // ban a user by admin 
-    app.patch('/user/ban/:id', verifyToken, async (req, res) => {
+    app.patch('/user/ban/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id
       const filter = { _id: new ObjectId(id) }
       const updateDoc = {
@@ -172,7 +171,6 @@ async function run() {
       const result = await usersCollection.updateOne(filter, updateDoc)
       res.send(result);
     });
-
 
 
     // get all pets by search, filtter query
@@ -193,6 +191,14 @@ async function run() {
         nextPage: page * limit < total ? Number(page) + 1 : null,
       })
     });
+
+
+    // get all pets by admin
+    app.get('/all-pets', async (req, res) => {
+      const result = await petsCollection.find().toArray();
+      res.send(result);
+    });
+
 
     // get all pets posted by a user
     app.get('/all-pets/:email', verifyToken, async (req, res) => {
@@ -287,6 +293,13 @@ async function run() {
     });
 
 
+    // get all donation campaigns by admin
+    app.get('/all-campaigns', async (req, res) => {
+      const result = await donationCampaignsCollection.find().toArray();
+      res.send(result);
+    });
+
+
     // get a donation campaigns by id
     app.get('/donation-campaigns/:id', verifyToken, async (req, res) => {
       const id = req.params.id
@@ -323,6 +336,14 @@ async function run() {
       res.send(result);
     });
 
+
+    // delete a donation campaign by admin
+    app.delete('/donation-campaign/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donationCampaignsCollection.deleteOne(query);
+      res.send(result);
+    });
 
 
     // save a donation in a donation campaigns 
