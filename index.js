@@ -3,6 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 
 // Express App and Middleware Setup
@@ -63,7 +64,7 @@ async function run() {
     const usersCollection = db.collection('users')
     const donationCampaignsCollection = db.collection('donation_campaign')
     const donationCollection = db.collection('donations')
-    const adoptionCollection = db.collection('adopted_pets')
+    const requestsCollection = db.collection('adoption_requests')
 
 
 
@@ -300,6 +301,34 @@ async function run() {
     });
 
 
+
+    // get 3 donation campaigns 
+    app.get('/limited-campaigns', async (req, res) => {
+      const result = await donationCampaignsCollection.find({ isPaused: false }).limit(3).toArray();
+      res.send(result);
+    });
+
+
+
+    // get all donation campaigns by sorting , scrolling
+    app.get('/allCampaigns', verifyToken, async (req, res) => {
+      const page = parseInt(req.query.page) || 1;
+      const limit = 6;
+      const skip = (page - 1) * limit;
+
+      const campaigns = await donationCampaignsCollection.find().sort({ createdAt: -1 }).skip(skip)
+        .limit(limit).toArray();
+      const totalCampaigns = await donationCampaignsCollection.countDocuments();
+
+      res.send({
+        campaigns,
+        currentPage: page,
+        hasMore: skip + campaigns.length < totalCampaigns,
+        nextPage: page + 1,
+      });
+    });
+
+
     // get a donation campaigns by id
     app.get('/donation-campaigns/:id', verifyToken, async (req, res) => {
       const id = req.params.id
@@ -346,6 +375,21 @@ async function run() {
     });
 
 
+    // payment intent
+    app.post('/create-payment-intent',verifyToken, async (req, res) => {
+      const { amount } = req.body;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount),
+        currency: 'usd',
+        payment_method_types: ['card']
+      });
+
+      res.send({
+        clientSecret: paymentIntent.client_secret
+      })
+    });
+
+
     // save a donation in a donation campaigns 
     app.post('/donations', verifyToken, async (req, res) => {
       const donationData = req.body;
@@ -381,23 +425,25 @@ async function run() {
     // make a adoption request
     app.post('/adopted-pet', verifyToken, async (req, res) => {
       const campaignData = req.body;
-      const result = await adoptionCollection.insertOne(campaignData)
+      const result = await requestsCollection.insertOne(campaignData)
       res.send(result);
     });
 
 
-    // get all pets adopted by a user
+    // get all pets request adopt by a user
     app.get('/adopted-pet/:email', verifyToken, async (req, res) => {
       const emails = req.params.email;
       const decodedEmail = req.user?.email
       if (decodedEmail !== emails)
         return res.status(401).send({ message: 'unauthorized access' })
       const query = {
-        requesterEmail: emails
+        addedBy: emails
       }
-      const result = await adoptionCollection.find(query).toArray();
+      const result = await requestsCollection.find(query).toArray();
       res.send(result);
     });
+
+
 
 
 
