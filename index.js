@@ -12,7 +12,7 @@ const app = express();
 const cookieParser = require('cookie-parser');
 const corsOptions = {
   origin: ['http://localhost:5173',
-    'http://localhost:5174',
+    'https://paw-haven-39454.web.app', 'https://paw-haven-39454.firebaseapp.com'
 
   ],
   credentials: true,
@@ -376,7 +376,7 @@ async function run() {
 
 
     // payment intent
-    app.post('/create-payment-intent',verifyToken, async (req, res) => {
+    app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { amount } = req.body;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount),
@@ -452,10 +452,10 @@ async function run() {
 
 
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
