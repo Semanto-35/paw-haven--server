@@ -459,6 +459,36 @@ async function run() {
     });
 
 
+    // delete my donated money from my donations
+    app.delete('/delete-donation/:id', verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await donationCollection.deleteOne(query);
+      res.send(result);
+    });
+
+
+    // refund my money from a donation campaign
+    app.patch('/refundMoney/:id', verifyToken, async (req, res) => {
+      const id = req.params.id
+      const { money } = req.body
+      const filter = { _id: new ObjectId(id) }
+
+      const campaign = await donationCampaignsCollection.findOne(filter);
+      if (!campaign) {
+        return res.status(404).send({ message: "Campaign not found" });
+      }
+      const newAmount = campaign.currentDonation - money;
+
+      const updateDoc = {
+        $set: {
+          currentDonation: newAmount
+        },
+      }
+      const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
+
 
     // make a adoption request
     app.post('/adopted-pet', verifyToken, async (req, res) => {
