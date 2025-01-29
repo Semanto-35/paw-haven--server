@@ -10,16 +10,26 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 const app = express();
 const cookieParser = require('cookie-parser');
-const corsOptions = {
-  origin: ['http://localhost:5173',
-    'https://paw-haven-39454.web.app', 'https://paw-haven-39454.firebaseapp.com'
 
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://paw-haven-39454.web.app",
+    "https://paw-haven-39454.firebaseapp.com",
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Origin",
+    "X-Requested-With",
+    "Accept",
+    "x-client-key",
+    "x-client-token",
+    "x-client-secret",
+    "Authorization",
   ],
   credentials: true,
-  optionalSuccessStatus: 200,
-}
-
-app.use(cors(corsOptions))
+}))
 app.use(express.json())
 app.use(cookieParser())
 
@@ -373,7 +383,7 @@ async function run() {
       const filter = { _id: new ObjectId(id) }
       const updateDoc = {
         $set: {
-          currentDonation : totalDonation
+          currentDonation: totalDonation
         },
       }
       const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
@@ -391,20 +401,29 @@ async function run() {
 
 
     // payment intent
-    app.post('/create-payment-intent', async (req, res) => {
+    app.post('/create-payment-intent', verifyToken, async (req, res) => {
       const { donatedAmount } = req.body;
-      const amount = parseInt(donatedAmount * 100);
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount),
-        currency: 'usd',
-        payment_method_types: ['card']
-      });
+      if (!donatedAmount || isNaN(donatedAmount)) {
+        return res.status(400).json({ error: "Invalid donation amount" });
+      }
 
-      res.send({
-        clientSecret: paymentIntent.client_secret
-      })
+      try {
+        const amount = Math.round(donatedAmount * 100);
+
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card'],
+        });
+
+        res.send({ clientSecret: paymentIntent.client_secret });
+      } catch (error) {
+        console.error("Error creating payment intent:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+      }
     });
+
 
 
     // save a donation in a donation campaigns 
@@ -416,12 +435,14 @@ async function run() {
 
 
     // get all donations created in a donation campaigns
-    app.get('/donations/:id', verifyToken, async (req, res) => {
+    app.get('/donationCampaign/:id', verifyToken, async (req, res) => {
       const id = req.params.id
-      const query = { petId: id }
+      console.log(id);
+      const query = { campaignId: id }
       const result = await donationCollection.find(query).toArray();
       res.send(result);
     });
+
 
 
     // get all donations created by a user
@@ -471,8 +492,8 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
     // Send a ping to confirm a successful connection
-    // await client.db("admin").command({ ping: 1 });
-    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    //   await client.db("admin").command({ ping: 1 });
+    //   console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
