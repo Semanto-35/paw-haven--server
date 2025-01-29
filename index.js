@@ -366,6 +366,21 @@ async function run() {
     });
 
 
+    // update a pet donation in donation campaign
+    app.patch('/donated-camp/:id',  async (req, res) => {
+      const id = req.params.id
+      const { totalDonation } = req.body
+      const filter = { _id: new ObjectId(id) }
+      const updateDoc = {
+        $set: {
+          currentDonation : totalDonation
+        },
+      }
+      const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
+      res.send(result);
+    });
+
+
     // delete a donation campaign by admin
     app.delete('/donation-campaign/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
@@ -376,8 +391,10 @@ async function run() {
 
 
     // payment intent
-    app.post('/create-payment-intent', verifyToken, async (req, res) => {
-      const { amount } = req.body;
+    app.post('/create-payment-intent', async (req, res) => {
+      const { donatedAmount } = req.body;
+      const amount = parseInt(donatedAmount * 100);
+
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount),
         currency: 'usd',
@@ -414,7 +431,7 @@ async function run() {
       if (decodedEmail !== emails)
         return res.status(401).send({ message: 'unauthorized access' })
       const query = {
-        addedBy: emails
+        donorEmail: emails
       }
       const result = await donationCollection.find(query).toArray();
       res.send(result);
