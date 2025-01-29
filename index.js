@@ -367,7 +367,7 @@ async function run() {
 
 
     // update a pet donation in donation campaign
-    app.patch('/donated-camp/:id',  async (req, res) => {
+    app.patch('/donated-camp/:id', verifyToken, async (req, res) => {
       const id = req.params.id
       const { totalDonation } = req.body
       const filter = { _id: new ObjectId(id) }
@@ -426,7 +426,7 @@ async function run() {
 
     // get all donations created by a user
     app.get('/donations/:email', verifyToken, async (req, res) => {
-      const emails = req.params.email;
+      const emails = req.params?.email;
       const decodedEmail = req.user?.email
       if (decodedEmail !== emails)
         return res.status(401).send({ message: 'unauthorized access' })
