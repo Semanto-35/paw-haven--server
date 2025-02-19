@@ -187,7 +187,7 @@ async function run() {
     // get all pets by search, filtter query
     app.get('/pets', async (req, res) => {
       const { page = 1, limit = 9, search = "", category = "" } = req.query;
-      const query = {};
+      const query = { adopted: false };
       if (search) query.petName = { $regex: search, $options: "i" };
       if (category) query.petCategory = category;
 
@@ -202,6 +202,20 @@ async function run() {
         nextPage: page * limit < total ? Number(page) + 1 : null,
       })
     });
+
+
+    app.get('/stats',verifyToken, async(req,res)=>{
+      const totalUsers = await usersCollection.countDocuments();
+      const totalPets = await petsCollection.countDocuments();
+      const totalCampaigns = await donationCampaignsCollection.countDocuments();
+      const totalDonations = await donationCollection.aggregate([{ $group: { _id: null, total: { $sum: "$donatedAmount" } } }]).toArray();
+
+      res.send({totalUsers,
+      totalPets,
+      // totalDonations: totalDonations.length ? totalDonations[0].total : 0,
+      totalCampaigns,})
+    });
+  
 
 
     // get all pets by admin
