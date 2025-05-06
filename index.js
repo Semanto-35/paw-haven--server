@@ -184,38 +184,110 @@ async function run() {
     });
 
 
-    // get all pets by search, filtter query
+    // get all pets by search, filtter query new
     app.get('/pets', async (req, res) => {
-      const { page = 1, limit = 9, search = "", category = "" } = req.query;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const skip = (page - 1) * limit;
+
       const query = { adopted: false };
-      if (search) query.petName = { $regex: search, $options: "i" };
-      if (category) query.petCategory = category;
+
+      if (req.query.search) {
+        query.petName = { $regex: req.query.search, $options: 'i' };
+      }
+
+      if (req.query.category) {
+        query.petCategory = req.query.category;
+      }
 
       const pets = await petsCollection.find(query)
         .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(Number(limit)).toArray();
+        .skip(skip)
+        .limit(limit).toArray();
 
-      const total = await petsCollection.countDocuments(query);
+      const totalPets = await petsCollection.countDocuments(query);
+      const totalPages = Math.ceil(totalPets / limit);
+
       res.send({
         pets,
-        nextPage: page * limit < total ? Number(page) + 1 : null,
+        currentPage: page,
+        totalPages,
+        totalPets,
+        nextPage: page < totalPages ? page + 1 : null
       })
     });
+    // get all pets by search, filtter query old
+    // app.get('/pets', async (req, res) => {
+    //   const { page = 1, limit = 9, search = "", category = "" } = req.query;
+    //   const query = { adopted: false };
+    //   if (search) query.petName = { $regex: search, $options: "i" };
+    //   if (category) query.petCategory = category;
+
+    //   const pets = await petsCollection.find(query)
+    //     .sort({ createdAt: -1 })
+    //     .skip((page - 1) * limit)
+    //     .limit(Number(limit)).toArray();
+
+    //   const total = await petsCollection.countDocuments(query);
+    //   res.send({
+    //     pets,
+    //     nextPage: page * limit < total ? Number(page) + 1 : null,
+    //   })
+    // });
 
 
-    app.get('/stats',verifyToken, async(req,res)=>{
+    app.get('/stats', verifyToken, async (req, res) => {
       const totalUsers = await usersCollection.countDocuments();
       const totalPets = await petsCollection.countDocuments();
       const totalCampaigns = await donationCampaignsCollection.countDocuments();
       const totalDonations = await donationCollection.aggregate([{ $group: { _id: null, total: { $sum: "$donatedAmount" } } }]).toArray();
 
-      res.send({totalUsers,
-      totalPets,
-      // totalDonations: totalDonations.length ? totalDonations[0].total : 0,
-      totalCampaigns,})
+      res.send({
+        totalUsers,
+        totalPets,
+        // totalDonations: totalDonations.length ? totalDonations[0].total : 0,
+        totalCampaigns,
+      })
     });
-  
+
+    // get featured pets
+    app.get('/featuredPets', async (req, res) => {
+      const result = await petsCollection.find({ adopted: false }).limit(4).toArray();
+      res.send(result);
+    });
+
+    // get all pets categories
+    app.get('/pet-categories', async (req, res) => {
+      const result = await petsCollection.aggregate([
+        {
+          $group: {
+            _id: "$petCategory",
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $project: {
+            name: "$_id",
+            count: 1,
+            _id: 0,
+            slug: {
+              $toLower: {
+                $replaceAll: {
+                  input: "$_id",
+                  find: " ",
+                  replacement: "-"
+                }
+              }
+            }
+          }
+        },
+        {
+          $sort: { name: 1 }
+        }
+      ]).toArray();
+
+      res.send(result);
+    });
 
 
     // get all pets by admin
@@ -298,6 +370,7 @@ async function run() {
         createdAt: new Date(),
         currentDonation: 0,
         isPaused: false,
+        donors: 0,
       }
       const result = await donationCampaignsCollection.insertOne(campaigns)
       res.send(result);
@@ -324,11 +397,19 @@ async function run() {
       res.send(result);
     });
 
+    // get featured campaigns
+    app.get('/featuredCampaigns', async (req, res) => {
+      const today = new Date().toISOString().split('T')[0];
+      const result = await donationCampaignsCollection.find({ lastDate: { $gte: today } }).limit(4).sort({ lastDate: 1 }).toArray();
 
+      res.send(result);
+    });
 
     // get 3 donation campaigns 
     app.get('/limited-campaigns', async (req, res) => {
-      const result = await donationCampaignsCollection.find({ isPaused: false }).limit(3).toArray();
+      const { id } = req.query;
+      const today = new Date().toISOString().split('T')[0];
+      const result = await donationCampaignsCollection.find({ lastDate: { $gte: today }, _id: { $ne: new ObjectId(id) } }).sort({ lastDate: 1 }).limit(3).toArray();
       res.send(result);
     });
 
@@ -393,11 +474,12 @@ async function run() {
     // update a pet donation in donation campaign
     app.patch('/donated-camp/:id', verifyToken, async (req, res) => {
       const id = req.params.id
-      const { totalDonation } = req.body
+      const { totalDonation, donors } = req.body
       const filter = { _id: new ObjectId(id) }
       const updateDoc = {
         $set: {
-          currentDonation: totalDonation
+          currentDonation: totalDonation,
+          donors,
         },
       }
       const result = await donationCampaignsCollection.updateOne(filter, updateDoc)
@@ -415,20 +497,58 @@ async function run() {
 
 
     // payment intent
-    app.post('/create-payment-intent', verifyToken, async (req, res) => {
-      const { donatedAmount } = req.body;
+    // app.post('/create-payment-intent', verifyToken, async (req, res) => {
+    //   const { donatedAmount } = req.body;
 
-      if (!donatedAmount || isNaN(donatedAmount)) {
+    //   if (!donatedAmount || isNaN(donatedAmount)) {
+    //     return res.status(400).json({ error: "Invalid donation amount" });
+    //   }
+
+    //   try {
+    //     const amount = Math.round(donatedAmount * 100);
+
+    //     const paymentIntent = await stripe.paymentIntents.create({
+    //       amount: amount,
+    //       currency: 'usd',
+    //       payment_method_types: ['card'],
+    //     });
+
+    //     res.send({ clientSecret: paymentIntent.client_secret });
+    //   } catch (error) {
+    //     console.error("Error creating payment intent:", error);
+    //     res.status(500).json({ error: "Internal Server Error" });
+    //   }
+    // });
+
+    // improved payment intent
+    app.post('/create-payment-intent', verifyToken, async (req, res) => {
+      const { donatedAmount, campaignId } = req.body;
+
+      // Validate amount
+      if (!donatedAmount || isNaN(donatedAmount) || donatedAmount <= 0) {
         return res.status(400).json({ error: "Invalid donation amount" });
       }
 
       try {
-        const amount = Math.round(donatedAmount * 100);
+        // Get campaign to check max donation
+        const campaign = await donationCampaignsCollection.findOne({ _id: new ObjectId(campaignId) });
+        if (!campaign) {
+          return res.status(404).json({ error: "Campaign not found" });
+        }
 
+        // Check if donation would exceed max
+        if (campaign.currentDonation + parseFloat(donatedAmount) > campaign.maxDonation) {
+          return res.status(400).json({
+            error: `Donation would exceed campaign maximum. Maximum remaining: $${campaign.maxDonation - campaign.currentDonation}`
+          });
+        }
+
+        const amount = Math.round(donatedAmount * 100);
         const paymentIntent = await stripe.paymentIntents.create({
           amount: amount,
           currency: 'usd',
           payment_method_types: ['card'],
+          metadata: { campaignId: campaignId.toString() }
         });
 
         res.send({ clientSecret: paymentIntent.client_secret });
@@ -451,7 +571,6 @@ async function run() {
     // get all donations created in a donation campaigns
     app.get('/donationCampaign/:id', verifyToken, async (req, res) => {
       const id = req.params.id
-      console.log(id);
       const query = { campaignId: id }
       const result = await donationCollection.find(query).toArray();
       res.send(result);
